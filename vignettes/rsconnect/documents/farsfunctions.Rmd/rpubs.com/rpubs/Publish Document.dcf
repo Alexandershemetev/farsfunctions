@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/643550/0d0b112458024d83a5fb2420de04bb9b
+bundleId: https://api.rpubs.com/api/v1/document/643550/0d0b112458024d83a5fb2420de04bb9b
+url: http://rpubs.com/alexshemetev/643550
+when: 1595930646.32123

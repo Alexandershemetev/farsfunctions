@@ -1,0 +1,389 @@
+---
+title: "farsfunctions"
+author: "Alexander Shemetev"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{farsfunctions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+library(farsfunctions)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+
+#  ----------------------------------------------------------------------------
+#  COURSERA: BUILDING R PACKAGES
+##  Peer-graded Assignment
+  File: fars_functions.R
+  Description of the package
+  GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+  Start: 27/June/2020
+  End:   28/July/2020
+#  ---------------------------------------------------------------------------
+
+ Read file with FARS data
+
+ The functions work with the data taken from the .csv file (including .bz2 archived), stored on disk,
+ from the US National Highway Traffic Safety Administration's (US NHTSA) date Fatality Analysis Reporting System (FARS), the US nationwide census, containing the
+ US Public Annual Data, regarding fatal accidents occured in motorized
+ vehicle (like automobiles or bikes) traffic crashes.
+``` {}
+For more information, see the source links (US NHTSA offial site and Wikipedia):
+https://www.nhtsa.gov/research-data/fatality-analysis-reporting-system-fars
+https://en.wikipedia.org/wiki/Fatality_Analysis_Reporting_System
+```
+# Function fars_read
+Import: From readr read_csv
+ Main dependencies: dplyr tbl_df
+
+ Parameters: filename A character string with the name of the file to read, see
+   notes.
+
+  A data frame with data readed from the csv file, or an error if the
+   file does not exists.
+
+  Open file related with the accident data files 2013-2015
+  Function fars_read can read .csv files and .csv archived in .bz2 format and other
+ formats compatible for the basic readr package for its function read_csv
+  Note that in the accidents data set only years 2013, 2014, and 2015 exist.
+ Parameters: filename - name of the file (may be written with the path). The filename argument/input
+ for the function is a string with the name of the file to be opened
+  Function fars_read returns a tibble MxN where M - number of observations; N - number of columns
+ (50 for the accidents data files)
+ Usage: fars_read(filename)
+ Examples:
+ ```{r eval=FALSE}
+print("Don't run me")
+ #dontrun{
+ library(dplyr)
+ library(readr)
+ setwd("C:/Users/Your_Path/")
+ dataf = fars_read("accident_2013.csv.bz2")
+ dataf = fars_read("C:/Users/Your_Path/accident_2013.csv.bz2")
+ head(dataf)
+ #dontrun}
+ ```
+# Function: make_filename
+Note: To generate file name use: \code{\link{make_filename}}
+ For help use:make_filename}
+ Details: In case if the file does not exist an error message is produced and execution stops.
+ Open code:
+ ```{r eval=FALSE}
+fars_read <- function(filename) {
+        if(!file.exists(filename))
+                stop("file '", filename, "' does not exist")
+        data <- suppressMessages({
+                readr::read_csv(filename, progress = FALSE)
+        })
+        dplyr::tbl_df(data)
+}
+```
+
+ Make data file name
+
+ Make .csv data file name related to the given \code{year}
+ The function does not check if the file is available.
+
+ Parameters: year A string or an integer with the input \code{year}
+
+  This function returns a string with the data file name for a given
+   year, and the file path within the package.
+
+ Examples:
+ ```{r eval=FALSE}
+ #dontrun{
+ make_filename(2012)
+ 
+ s accident_2012.csv.bz2
+# For help use: 
+?fars_read
+# Open code:
+make_filename <- function(year) {
+        year <- as.integer(year)
+        system.file("extdata",
+                    sprintf("accident_%d.csv.bz2", year),
+                    package = "fars",
+                    mustWork = TRUE)
+}
+#dontrun}
+```
+# Function fars_read_years
+Used to read the FARS years
+ Ancillary function used by fars_summarize_years
+ Primary function to the
+ Parameters: years A vector with a list of years
+ Main dependencies: dplyr mutate_
+ Main dependencies: dplyr select_
+ Main dependencies: magrittr "%>%"
+  A data.frame including entries in data by month,
+ or NULL if the year is not valid
+ For help use: ?fars_read
+ For help use: ?make_filename
+ For help use: ?fars_summarize_years
+ Examples:
+  ```{r eval=FALSE}
+ #dontrun{
+ setwd("C:/Users/Your_Path/")
+ fars_read_years(2013)
+ 
+# Open code:
+fars_read_years <- function(years) {
+        lapply(years, function(year) {
+          file <- make_filename(year)
+                tryCatch({
+                        dat <- fars_read(file)
+                        dplyr::mutate_(dat,  year = "YEAR") %>%
+                          dplyr::select_("MONTH", "year")
+                }, error = function(e) {
+                        warning("invalid year: ", year)
+                        return(NULL)
+                })
+        })
+}
+#dontrun}
+```
+# Function fars_summarize_years
+ Summarize FARS data by years
+
+ This simple function summarizes yearly accidents data, by month
+ Parameters: years A vector with a list of years to summarize by.
+
+  A data.frame with number of accidents by years summarized by month
+ Main dependencies: dplyr bind_rows
+ Main dependencies: dplyr group_by_
+ Main dependencies: dplyr summarize_
+ Main dependencies: tidyr spread_
+ Main dependencies: magrittr "%>%"
+ For help use: ?fars_read_years
+ Examples:
+   ```{r eval=FALSE}
+ #dontrun{
+ setwd("C:/Users/Your_Path/")
+ plot(fars_summarize_years(2013))
+ fars_summarize_years(c(2013, 2015))
+
+# Open code: 
+fars_summarize_years <- function(years) {
+  dat_list <- fars_read_years(years)
+  dplyr::bind_rows(dat_list) %>%
+    dplyr::group_by_("year", "MONTH") %>%
+    dplyr::summarize_(n = "n()") %>%
+    tidyr::spread_("year", "n")
+}
+ #dontrun}
+```
+# Function fars_map_state
+ Display accidents map by state and year
+
+ Displays a plot with a state map including the accidents location by year
+ If the \code{state.num} is invalid the function shows an error
+ Parameters: state.num An Integer with the State Code (alphabetical order)
+ \tabular{cc}{
+   \strong{State Code} \tab \strong{State Name}    \cr
+   01 \tab  Alabama              \cr
+   02 \tab  Alaska               \cr
+   04 \tab  Arizona              \cr
+   05 \tab  Arkansas             \cr
+   06 \tab  California           \cr
+   08 \tab  Colorado             \cr
+   09 \tab  Connecticut          \cr
+   10 \tab  Delaware             \cr
+   11 \tab  District of Columbia \cr
+   12 \tab  Florida              \cr
+   13 \tab  Georgia              \cr
+   15 \tab  Hawaii               \cr
+   16 \tab  Idaho                \cr
+   17 \tab  Illinois             \cr
+   18 \tab  Indiana              \cr
+   19 \tab  Iowa                 \cr
+   20 \tab  Kansas               \cr
+   21 \tab  Kentucky             \cr
+   22 \tab  Louisiana            \cr
+   23 \tab  Maine                \cr
+   24 \tab  Maryland             \cr
+   25 \tab  Massachusetts        \cr
+   26 \tab  Michigan             \cr
+   27 \tab  Minnesota            \cr
+   28 \tab  Mississippi          \cr
+   29 \tab  Missouri             \cr
+   30 \tab  Montana              \cr
+   31 \tab  Nebraska             \cr
+   32 \tab  Nevada               \cr
+   33 \tab  New Hampshire        \cr
+   34 \tab  New Jersey           \cr
+   35 \tab  New Mexico           \cr
+   36 \tab  New York             \cr
+   37 \tab  North Carolina       \cr
+   38 \tab  North Dakota         \cr
+   39 \tab  Ohio                 \cr
+   40 \tab  Oklahoma             \cr
+   41 \tab  Oregon               \cr
+   42 \tab  Pennsylvania         \cr
+   43 \tab  Puerto Rico          \cr
+   44 \tab  Rhode Island         \cr
+   45 \tab  South Carolina       \cr
+   46 \tab  South Dakota         \cr
+   47 \tab  Tennessee            \cr
+   48 \tab  Texas                \cr
+   49 \tab  Utah                 \cr
+   50 \tab  Vermont              \cr
+   51 \tab  Virginia             \cr
+   52 \tab  Virgin Islands       \cr
+   53 \tab  Washington           \cr
+   54 \tab  West Virginia        \cr
+   55 \tab  Wisconsin            \cr
+   56 \tab  Wyoming
+ }
+ Parameters: year A string, or an integer, with the input \code{year}
+
+ Main dependencies: maps map
+ Main dependencies: dplyr filter_
+ Main dependencies: graphics points
+ For help use: ?fars_read
+ ?make_filename
+ References 2014 FARS/NASS GES Coding and Validation Manual
+ Examples:
+  ```{r eval=FALSE}
+ \dontrun{
+ fars_map_state(37, 2014)
+ 
+# Open code:
+fars_map_state <- function(state.num, year) {
+  filename <- make_filename(year)
+  data <- fars_read(filename)
+  state.num <- as.integer(state.num)
+  if(!(state.num %in% unique(data$STATE))) {
+    stop("invalid STATE number: ", state.num)
+  }
+  data.sub <- dplyr::filter_(data, .dots = paste0("STATE==", state.num))
+  if(nrow(data.sub) == 0L) {
+    message("no accidents to plot")
+    return(invisible(NULL))
+  }
+  is.na(data.sub$LONGITUD) <- data.sub$LONGITUD > 900
+  is.na(data.sub$LATITUDE) <- data.sub$LATITUDE > 90
+  with(data.sub, {
+    maps::map("state", ylim = range(LATITUDE, na.rm = TRUE),
+              xlim = range(LONGITUD, na.rm = TRUE))
+    graphics::points(LONGITUD, LATITUDE, pch = 46)
+  })
+}
+# dontrun}
+```
+# Function catfunction 
+This function allows you to express your love of cats.
+Asks question: Do you love cats? Defaults to TRUE.
+Examples: 
+```{r eval=FALSE}
+ cat_function()
+```
+
+
+## Life axamples for using the code 
+ Arabidopsis FARS data on accidents in 2015
+
+ Data from a FARS dataset in
+ 50 variables and several thousand observations
+
+ Type: data
+
+ Usage: data(mydatagr15)
+ Format An object of class \code{"cross"}; see \code{\link[qtl]{read.cross}}.
+
+ Keywords: datasets
+
+ References: Coursera datasets from the course Build R packages (available in August 2020)
+  Examples:
+ str(mydatagr15)
+```{r eval=FALSE}
+path = "C:/Users/Your_Path/"
+subfolder = "inst/extdata/"
+myfile = "accident_2015.csv.bz2"
+mydata <- fars_read(paste0(path, subfolder, myfile))
+head(mydata[ , 1:8], 10)
+```
+
+```{r import data, echo=FALSE}
+fars_read1 <- function(filename) {
+        if(!file.exists(filename))
+                stop("file '", filename, "' does not exist")
+        data <- suppressMessages({
+                readr::read_csv(filename, progress = FALSE)
+        })
+        dplyr::tbl_df(data)
+}
+path = "C:/Users/Alex/Documents/R/HOMEPROJECTS/farsfunctions/"
+subfolder = "inst/extdata/"
+myfile = "accident_2015.csv.bz2"
+mydatagr16 <- fars_read1(paste0(path, subfolder, myfile))
+mydatagr17 <- mydatagr16[ , 1:8]
+knitr::kable(head(mydatagr17, 10))
+```
+
+
+## Additional Figures
+
+The figure sizes have been customised so that you can easily put two images side-by-side. 
+```{r eval=FALSE}
+fars_map_state(39, 2015)
+fars_map_state(29, 2015)
+```
+
+```{r, fig.show='hold', echo=FALSE}
+fars_map_state1 <- function(state.num, year) {
+  filename <- mydatagr16
+  data <- mydatagr16
+  state.num <- as.integer(state.num)
+  if(!(state.num %in% unique(data$STATE))) {
+    stop("invalid STATE number: ", state.num)
+  }
+  data.sub <- dplyr::filter_(data, .dots = paste0("STATE==", state.num))
+  if(nrow(data.sub) == 0L) {
+    message("no accidents to plot")
+    return(invisible(NULL))
+  }
+  is.na(data.sub$LONGITUD) <- data.sub$LONGITUD > 900
+  is.na(data.sub$LATITUDE) <- data.sub$LATITUDE > 90
+  with(data.sub, {
+    maps::map("state", ylim = range(LATITUDE, na.rm = TRUE),
+              xlim = range(LONGITUD, na.rm = TRUE))
+    graphics::points(LONGITUD, LATITUDE, pch = 46)
+  })
+}
+fars_map_state1(39, 2015)
+fars_map_state1(29, 2015)
+
+
+
+# plot(1:10)
+# plot(10:1)
+```
+
+You can enable figure captions by `fig_caption: yes` in YAML:
+
+    output:
+      rmarkdown::html_vignette:
+        fig_caption: yes
+
+Then you can use the chunk option `fig.cap = "Your figure caption."` in **knitr**.
+
+## More Additional Examples
+
+You can write math expressions, e.g. $Y = X\beta + \epsilon$, footnotes^[A footnote here.], and tables, e.g. using `knitr::kable()`.
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(head(mtcars, 10))
+```
+
+Also a quote using `>`:
+
+> "Link to the developer's GitHub: click here."
+([via](https://github.com/Alexandershemetev/farsfunctions))
